@@ -89,6 +89,7 @@ function Mod.buffers()
 
     api.nvim_win_set_height(0, 10)
     vim.wo.number = false
+    vim.wo.signcolumn = "no"
 
     apply_keymap(this_bufnr)
 
@@ -96,8 +97,8 @@ function Mod.buffers()
     -- @param firstline Buffer
     -- @param new_lastline Buffer
     local function on_lines(_, bufnr, _, firstline, _, new_lastline, _, _, _)
-      main(function()
-        local status, err = pcall(function()
+      pcall(function()
+        main(function()
           local lines = api.nvim_buf_get_lines(bufnr, firstline, new_lastline, true)
           local preview = curr_line_buf(lines)
 
@@ -106,14 +107,8 @@ function Mod.buffers()
             api.nvim_win_set_buf(source_winid, preview)
           end
         end)
-
-        if not status then
-          inspect(err)
-        end
       end)
     end
-
-    api.nvim_buf_attach(this_bufnr, false, { on_lines = on_lines })
 
     cmd [[
     silent redir => b:ls
@@ -124,6 +119,9 @@ function Mod.buffers()
     local source = vim.split(vim.b.ls, '\n')
 
     local opts = [[ --ansi --expect="ctrl-c,ctrl-g,ctrl-d,enter" ]]
+
+    api.nvim_buf_attach(this_bufnr, false, { on_lines = on_lines })
+
     local choice = fzf.provided_win_fzf(source, opts)
 
     active = false
