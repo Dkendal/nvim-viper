@@ -4,7 +4,6 @@ local async, await, main = a.sync, a.wait, a.main
 local fn, api, cmd = vim.fn, vim.api, vim.cmd
 local format = string.format
 
-local active = false
 local source_bufnr
 local source_winid
 
@@ -16,6 +15,15 @@ end
 
 local function t(keys)
   return api.nvim_replace_termcodes(keys, true, true, true)
+end
+
+local function create_search_buf()
+  local buf = api.nvim_create_buf(false, true)
+  cmd(format('botright sb %s', buf))
+  api.nvim_win_set_height(0, 10)
+  vim.wo.number = false
+  vim.wo.signcolumn = 'no'
+  return buf
 end
 
 local Mod = {}
@@ -61,12 +69,8 @@ local function buf_set_keymap(buffer, mode, lhs, rhs, opts)
   api.nvim_buf_set_keymap(buffer, mode, lhs, rhs, opts)
 end
 
-local function apply_keymap(bufnr)
-  buf_set_keymap(bufnr, 't', '<ESC>', '<C-c>', {})
-
-  -- buf_set_keymap(bufnr, 't', '<C-k>', function() return end, {})
-
-  -- Release refs to buffer maps
+-- Release refs to buffer maps
+local function on_exit_release_buf_callbacks(bufnr)
   api.nvim_buf_attach(bufnr, false, {
     on_detach = function()
       registry[bufnr] = nil
@@ -80,33 +84,28 @@ function Mod.buffers()
 
     source_bufnr = fn.bufnr()
     source_winid = fn.win_getid()
-    active = true
 
     -- @type Buffer
-    local this_bufnr = api.nvim_create_buf(false, true)
+    local this_bufnr = create_search_buf()
 
-    cmd(format('botright sb %s', this_bufnr))
-
-    api.nvim_win_set_height(0, 10)
-    vim.wo.number = false
-    vim.wo.signcolumn = "no"
-
-    apply_keymap(this_bufnr)
+    buf_set_keymap(this_bufnr, 't', '<ESC>', '<C-c>', {})
+    -- buf_set_keymap(this_bufnr, 't', '<C-k>', function() return end, {})
+    on_exit_release_buf_callbacks(this_bufnr)
 
     -- @param bufnr Buffer
     -- @param firstline Buffer
     -- @param new_lastline Buffer
     local function on_lines(_, bufnr, _, firstline, _, new_lastline, _, _, _)
       pcall(function()
-        main(function()
-          local lines = api.nvim_buf_get_lines(bufnr, firstline, new_lastline, true)
-          local preview = curr_line_buf(lines)
+        local lines = api.nvim_buf_get_lines(bufnr, firstline, new_lastline, true)
+        local preview = curr_line_buf(lines)
 
-          if preview then
+        if preview then
+          main(function()
             preview = tonumber(preview)
             api.nvim_win_set_buf(source_winid, preview)
-          end
-        end)
+          end)
+        end
       end)
     end
 
@@ -124,11 +123,10 @@ function Mod.buffers()
 
     local choice = fzf.provided_win_fzf(source, opts)
 
-    active = false
+    fn.win_gotoid(source_winid)
 
     local function reset()
       api.nvim_win_set_buf(source_winid, source_bufnr)
-      fn.win_gotoid(source_winid)
     end
 
     if not choice then
@@ -138,17 +136,84 @@ function Mod.buffers()
     local key = choice[1]
 
     if key == 'enter' then
-      fn.win_gotoid(source_winid)
+      return
     else
       return reset()
     end
   end)()
 end
 
+function Mod.registers()
+  async(function()
+    await(main)
+
+    source_bufnr = fn.bufnr()
+    source_winid = fn.win_getid()
+
+    ----------------------------------------------------------------------------
+    --                                                                        --
+    --                          Search buffer set up                          --
+    --                                                                        --
+    ----------------------------------------------------------------------------
+    -- @type Buffer
+    local this_bufnr = api.nvim_create_buf(false, true)
+    cmd(format('botright sb %s', this_bufnr))
+    api.nvim_win_set_height(0, 10)
+    vim.wo.number = false
+    vim.wo.signcolumn = 'no'
+
+    ----------------------------------------------------------------------------
+    --                                                                        --
+    --                    Source capture from vim command                     --
+    --                                                                        --
+    ----------------------------------------------------------------------------
+    local vimcmd = 'registers'
+    local source = api.nvim_exec(vimcmd, 'silent')
+    source = vim.trim(source)
+    source = vim.split(source, '[\n\r]')
+
+    ----------------------------------------------------------------------------
+    --                                                                        --
+    --                              Starting FZF                              --
+    --                                                                        --
+    ----------------------------------------------------------------------------
+    local callbacks = {}
+    api.nvim_buf_attach(this_bufnr, false, callbacks)
+    local opts = [[ --header-lines=1 --ansi --expect="ctrl-c,ctrl-g,ctrl-d,enter" ]]
+    local choice = fzf.provided_win_fzf(source, opts)
+
+    ----------------------------------------------------------------------------
+    --                                                                        --
+    --                                Clean up                                --
+    --                                                                        --
+    ----------------------------------------------------------------------------
+    fn.win_gotoid(source_winid)
+
+    if not choice then
+      return
+    end
+
+    ----------------------------------------------------------------------------
+    --                                                                        --
+    --                            Post-processing                             --
+    --                                                                        --
+    ----------------------------------------------------------------------------
+
+    local key, output = unpack(choice)
+
+    local register = string.match(output, [[%a%s+"(.)]])
+
+    if key == 'enter' then
+      cmd(format("put %s", register))
+    end
+  end)()
+end
+
 function Mod.init()
-  cmd [[
+  api.nvim_exec([[
   command! ViperBuffers :lua require("viper").buffers()
-  ]]
+  command! ViperRegisters :lua require("viper").registers()
+  ]], false)
 end
 
 Mod.init()
