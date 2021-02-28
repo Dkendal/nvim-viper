@@ -1,5 +1,5 @@
 local fzf = require 'fzf'
-local a = require 'async'
+local a = require 'viper.async'
 local async, await, main = a.sync, a.wait, a.main
 local fn, api, cmd = vim.fn, vim.api, vim.cmd
 local format = string.format
@@ -150,11 +150,7 @@ function Mod.registers()
     source_bufnr = fn.bufnr()
     source_winid = fn.win_getid()
 
-    ----------------------------------------------------------------------------
-    --                                                                        --
-    --                          Search buffer set up                          --
-    --                                                                        --
-    ----------------------------------------------------------------------------
+    -- Search buffer set up
     -- @type Buffer
     local this_bufnr = api.nvim_create_buf(false, true)
     cmd(format('botright sb %s', this_bufnr))
@@ -162,43 +158,26 @@ function Mod.registers()
     vim.wo.number = false
     vim.wo.signcolumn = 'no'
 
-    ----------------------------------------------------------------------------
-    --                                                                        --
-    --                    Source capture from vim command                     --
-    --                                                                        --
-    ----------------------------------------------------------------------------
+    -- Source capture from vim command
     local vimcmd = 'registers'
-    local source = api.nvim_exec(vimcmd, 'silent')
+    local source = api.nvim_exec(vimcmd, true)
     source = vim.trim(source)
     source = vim.split(source, '[\n\r]')
 
-    ----------------------------------------------------------------------------
-    --                                                                        --
-    --                              Starting FZF                              --
-    --                                                                        --
-    ----------------------------------------------------------------------------
+    -- Starting FZF
     local callbacks = {}
     api.nvim_buf_attach(this_bufnr, false, callbacks)
     local opts = [[ --header-lines=1 --ansi --expect="ctrl-c,ctrl-g,ctrl-d,enter" ]]
     local choice = fzf.provided_win_fzf(source, opts)
 
-    ----------------------------------------------------------------------------
-    --                                                                        --
-    --                                Clean up                                --
-    --                                                                        --
-    ----------------------------------------------------------------------------
+    -- Clean up
     fn.win_gotoid(source_winid)
 
     if not choice then
       return
     end
 
-    ----------------------------------------------------------------------------
-    --                                                                        --
-    --                            Post-processing                             --
-    --                                                                        --
-    ----------------------------------------------------------------------------
-
+    -- Post-processing
     local key, output = unpack(choice)
 
     local register = string.match(output, [[%a%s+"(.)]])

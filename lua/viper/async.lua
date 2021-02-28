@@ -3,7 +3,7 @@ local co = coroutine
 
 local log = {
   error = function(...)
-    vim.nvim_err_writeln(table.concat({ 'ERROR:', ... }, ' '))
+    vim.api.nvim_err_writeln(table.concat({ ... }, ' '))
   end
 }
 

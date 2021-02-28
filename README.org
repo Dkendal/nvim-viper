@@ -1,21 +1,21 @@
 * Viper
 
 ** Installation
-   
+
    #+begin_src vim
      Plug 'vijaymarupudi/nvim-fzf' " Pre-requisite
      Plug 'dkendal/nvim-viper'
    #+end_src
-   
+
 
 ** Key bindings
    Viper doesn't ship with any keybindings. Here are some suggestions:
 
    #+begin_src vim
-     nmap <leader>bb :ViperBuffers<cr>
-     nmap <leader>pr :ViperRegisters<cr>
+     nn <silent> <leader>bb :ViperBuffers<cr>
+     nn <silent> <leader>pr :ViperRegisters<cr>
    #+end_src
-   
+
 
 ** Commands
  - :ViperBuffers :: Buffer listing
