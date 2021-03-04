@@ -4,10 +4,32 @@ local async, await, main = a.sync, a.wait, a.main
 local fn, api, cmd = vim.fn, vim.api, vim.cmd
 local format = string.format
 
-local source_bufnr
-local source_winid
+local Mod = {}
+local registry = {}
+
+local fzf_opts = { ansi = true, expect = { 'ctrl-c', 'ctrl-g', 'ctrl-d', 'enter' } }
 
 -- @alias Buffer number
+
+local function tbl2flags(tbl)
+  local out = ''
+  for key, value in pairs(tbl) do
+    if type(value) == 'table' then
+      value = table.concat(value, ',')
+    end
+
+    if value == true then
+      out = out .. ' ' .. format([[--%s]], key)
+    else
+      out = out .. ' ' .. format([[--%s=%s]], key, vim.inspect(value))
+    end
+  end
+  return out
+end
+
+local function merge_fzf_opts(tbl)
+  return tbl2flags(vim.tbl_deep_extend('keep', fzf_opts, { color = vim.o.background }, tbl))
+end
 
 local function inspect(...)
   print(unpack(vim.tbl_map(vim.inspect, { ... })))
@@ -17,24 +39,65 @@ local function t(keys)
   return api.nvim_replace_termcodes(keys, true, true, true)
 end
 
-local function create_search_buf()
-  local buf = api.nvim_create_buf(false, true)
-  cmd(format('botright sb %s', buf))
-  api.nvim_win_set_height(0, 10)
-  vim.wo.number = false
-  vim.wo.signcolumn = 'no'
-  return buf
+local function execute_list(vim_cmd)
+  local str = api.nvim_exec(vim_cmd, true)
+  str = vim.split(str, '[\n\r]')
+  return str
 end
 
-local Mod = {}
+-- Run a function with the current buffer and win, and restore back to them
+-- after the function completes.
+local function with_current_buf_win(func)
+  local buf = api.nvim_get_current_buf()
+  local win = api.nvim_get_current_win()
 
-local registry = {}
+  local success, result = pcall(func)
 
-function Mod.buf_call(buffer, mode, lhs, args)
-  registry[buffer][mode][lhs](args)
+  api.nvim_set_current_win(win)
+  api.nvim_set_current_buf(buf)
+
+  if not success then
+    error(result)
+  end
+
+  return result
 end
 
-local function curr_line(lines)
+local function with_temp_buf(func)
+  return with_current_buf_win(function()
+    local buf = api.nvim_create_buf(false, true)
+    cmd(format('botright sb %s', buf))
+    api.nvim_win_set_height(0, 10)
+    vim.wo.number = false
+    vim.wo.signcolumn = 'no'
+
+    local success, result = pcall(func)
+
+    if api.nvim_buf_is_valid(buf) then
+      api.nvim_buf_delete(buf)
+    end
+
+    if not success then
+      error(result)
+    end
+
+    return result
+  end)
+end
+
+function Mod.buf_call(_buffer, mode, lhs, args)
+  -- just gonna ignore buffer for now because there's only ever
+  -- one window open
+  -- I'm fine with thie being broken if there are multiple open
+  registry[0][mode][lhs](args)
+end
+
+local function map_esc_to_ctrl_c()
+  api.nvim_buf_set_keymap(0, 't', '<ESC>', '<C-c>', {})
+end
+
+-- return the current line in the fzf selection
+local function fzf_current_line(lines)
   local match_count = '(%d)/%d'
   local current = '>%s+(.*)'
 
@@ -51,10 +114,6 @@ local function curr_line(lines)
   end
 end
 
-local function curr_line_buf(lines)
-  return string.match(curr_line(lines) or '', '(%d+).*')
-end
-
 local function buf_set_keymap(buffer, mode, lhs, rhs, opts)
   if type(rhs) == 'string' then
     api.nvim_buf_set_keymap(buffer, mode, lhs, rhs, opts)
@@ -69,76 +128,50 @@ local function buf_set_keymap(buffer, mode, lhs, rhs, opts)
   api.nvim_buf_set_keymap(buffer, mode, lhs, rhs, opts)
 end
 
--- Release refs to buffer maps
-local function on_exit_release_buf_callbacks(bufnr)
-  api.nvim_buf_attach(bufnr, false, {
-    on_detach = function()
-      registry[bufnr] = nil
-    end
-  })
-end
-
 function Mod.buffers()
+  local pattern = '(%d+).*'
+
   async(function()
     await(main)
 
-    source_bufnr = fn.bufnr()
-    source_winid = fn.win_getid()
+    local win = api.nvim_get_current_win()
 
-    -- @type Buffer
-    local this_bufnr = create_search_buf()
+    local source = execute_list('ls')
 
-    buf_set_keymap(this_bufnr, 't', '<ESC>', '<C-c>', {})
-    -- buf_set_keymap(this_bufnr, 't', '<C-k>', function() return end, {})
-    on_exit_release_buf_callbacks(this_bufnr)
+    local choice = with_temp_buf(function()
+      map_esc_to_ctrl_c()
 
-    -- @param bufnr Buffer
-    -- @param firstline Buffer
-    -- @param new_lastline Buffer
-    local function on_lines(_, bufnr, _, firstline, _, new_lastline, _, _, _)
-      pcall(function()
-        local lines = api.nvim_buf_get_lines(bufnr, firstline, new_lastline, true)
-        local preview = curr_line_buf(lines)
+      -- buf_set_keymap(this_bufnr, 't', '<C-k>', function() return end, {})
 
-        if preview then
-          main(function()
-            preview = tonumber(preview)
-            api.nvim_win_set_buf(source_winid, preview)
-          end)
-        end
-      end)
-    end
+      -- @param bufnr Buffer
+      -- @param firstline Buffer
+      -- @param new_lastline Buffer
+      local function on_lines(_, bufnr, _, firstline, _, new_lastline, _, _, _)
+        pcall(function()
+          local lines = api.nvim_buf_get_lines(bufnr, firstline, new_lastline, true)
+          local preview = string.match(fzf_current_line(lines) or '', pattern)
 
-    cmd [[
-    silent redir => b:ls
-    ls
-    redir END
-    ]]
+          if preview then
+            main(function()
+              preview = tonumber(preview)
+              api.nvim_win_set_buf(win, preview)
+            end)
+          end
+        end)
+      end
 
-    local source = vim.split(vim.b.ls, '\n')
+      api.nvim_buf_attach(0, false, { on_lines = on_lines })
 
-    local opts = [[ --ansi --expect="ctrl-c,ctrl-g,ctrl-d,enter" ]]
+      return fzf.provided_win_fzf(source, merge_fzf_opts({}))
+    end)
 
-    api.nvim_buf_attach(this_bufnr, false, { on_lines = on_lines })
+    local key, selection = unpack(choice)
 
-    local choice = fzf.provided_win_fzf(source, opts)
-
-    fn.win_gotoid(source_winid)
-
-    local function reset()
-      api.nvim_win_set_buf(source_winid, source_bufnr)
-    end
-
-    if not choice then
-      return reset()
-    end
-
-    local key = choice[1]
+    local buf = selection:match(pattern)
 
     if key == 'enter' then
+      cmd(format('buf %s', buf))
       return
-    else
-      return reset()
     end
   end)()
 end
@@ -147,43 +180,37 @@ function Mod.registers()
   async(function()
     await(main)
 
-    source_bufnr = fn.bufnr()
-    source_winid = fn.win_getid()
+    local source = execute_list('registers')
 
-    -- Search buffer set up
-    -- @type Buffer
-    local this_bufnr = api.nvim_create_buf(false, true)
-    cmd(format('botright sb %s', this_bufnr))
-    api.nvim_win_set_height(0, 10)
-    vim.wo.number = false
-    vim.wo.signcolumn = 'no'
+    local choice = with_temp_buf(function()
+      map_esc_to_ctrl_c()
 
-    -- Source capture from vim command
-    local vimcmd = 'registers'
-    local source = api.nvim_exec(vimcmd, true)
-    source = vim.trim(source)
-    source = vim.split(source, '[\n\r]')
+      return fzf.provided_win_fzf(source, merge_fzf_opts({ ['header-lines'] = 1 }))
+    end)
 
-    -- Starting FZF
-    local callbacks = {}
-    api.nvim_buf_attach(this_bufnr, false, callbacks)
-    local opts = [[ --header-lines=1 --ansi --expect="ctrl-c,ctrl-g,ctrl-d,enter" ]]
-    local choice = fzf.provided_win_fzf(source, opts)
-
-    -- Clean up
-    fn.win_gotoid(source_winid)
-
-    if not choice then
-      return
-    end
-
-    -- Post-processing
-    local key, output = unpack(choice)
-
-    local register = string.match(output, [[%a%s+"(.)]])
+    local key, selection = unpack(choice)
 
     if key == 'enter' then
-      cmd(format("put %s", register))
+      local register = string.match(selection, [[%a%s+"(.)]])
+      cmd(format('put %s', register))
+    end
+  end)()
+end
+
+function Mod.files()
+  async(function()
+    await(main)
+
+    local choice = with_temp_buf(function()
+      map_esc_to_ctrl_c()
+      local source = 'fd'
+      return fzf.provided_win_fzf(source, merge_fzf_opts({}))
+    end)
+
+    local key, selection = unpack(choice)
+
+    if key == 'enter' then
+      cmd(format('e %s', selection))
     end
   end)()
 end
@@ -192,6 +219,7 @@ function Mod.init()
   api.nvim_exec([[
   command! ViperBuffers :lua require("viper").buffers()
   command! ViperRegisters :lua require("viper").registers()
+  command! ViperFiles :lua require("viper").files()
   ]], false)
 end
 
