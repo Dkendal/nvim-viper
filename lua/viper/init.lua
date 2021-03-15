@@ -238,7 +238,10 @@ function Mod.registers()
 end
 
 -- @param source string Shell command that returns a file path
-function Mod.files(source)
+function Mod.files(source, opts)
+  opts = opts or {}
+  local pattern = opts.pattern or ".*"
+
   async(function()
     await(main)
 
@@ -249,8 +252,10 @@ function Mod.files(source)
 
     local key, selection = unpack(choice)
 
+    local file = selection:match(pattern)
+
     if key == 'enter' then
-      cmd(format('e %s', selection))
+      cmd(format('e %s', file))
     end
   end)()
 end
@@ -312,6 +317,8 @@ function Mod.init()
   command! ViperRegisters :lua require("viper").registers()
   command! -nargs=* ViperFiles :lua require("viper").files(<q-args>)
   command! -nargs=* ViperGrep :lua require("viper").grep(<q-args>)
+
+  command! -nargs=* ViperGitStatus :lua require("viper").files("git -c color.status=always status --short", { pattern = ".* (.*)" })
   ]], false)
 end
 
