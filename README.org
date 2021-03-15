@@ -8,15 +8,44 @@
    #+end_src
 
 
-** Key bindings
+** Viper special buffer key bindings
+   
+   | Key binding                         | effect         |
+   |-------------------------------------+----------------|
+   | <ctrl-g>, <ctrl-c>, <ctrl-d>, <esc> | exit           |
+   | <enter>                             | make selection |
+
+** Commands
+*** ViperBuffers
+    Buffer listing, previews selection.
+    
+    [[./docs/viper-buffers.gif]]    
+    
+*** ViperRegisters
+    List register contents, selection
+    
+    [[./docs/viper-registers.gif]]    
+
+*** ViperFiles
+    Supply a shell command that produces a list of files.
+    
+    [[./docs/viper-files.gif]]    
+    
+*** ViperGrep
+    Supply a shell command that produces vimgrep output. Previews each selection while filtering
+    
+    [[./docs/viper-grep.gif]]    
+
+** Global Key bindings
    Viper doesn't ship with any keybindings. Here are some suggestions:
 
    #+begin_src vim
-     nn <silent> <leader>bb :ViperBuffers<cr>
-     nn <silent> <leader>pr :ViperRegisters<cr>
+     nn <leader>bb        :ViperBuffers<cr>
+
+     nn <leader>pr        :ViperRegisters<cr>
+
+     nn <leader>ff        :ViperFiles fd<cr>
+
+     nn <leader>/         :ViperGrep rg --vimgrep<space>
+     vn <leader>/ y:<C-u> :ViperGrep rg --vimgrep -w -- <C-r>0<CR>
    #+end_src
-
-
-** Commands
- - :ViperBuffers :: Buffer listing
- - :ViperRegisters :: List register contents
