@@ -275,10 +275,16 @@ function Mod.grep(source)
 
       on_selection_change(function(text)
         local file, line, col = parse_vimgrep(text)
+
+        if file == nil then
+          return
+        end
+
         local new_buf = fn.bufexists(file) == 0
         local buf = fn.bufadd(file)
 
         main(function()
+
           api.nvim_buf_clear_namespace(buf, ns, 0, -1)
           api.nvim_buf_add_highlight(buf, ns, hl_group, line - 1, 0, -1)
           api.nvim_win_set_buf(win, buf)
@@ -315,8 +321,8 @@ function Mod.init()
   api.nvim_exec([[
   command! ViperBuffers :lua require("viper").buffers()
   command! ViperRegisters :lua require("viper").registers()
-  command! -nargs=* ViperFiles :lua require("viper").files(<q-args>)
-  command! -nargs=* ViperGrep :lua require("viper").grep(<q-args>)
+  command! -nargs=* ViperFiles :lua require("viper.functions").files(<q-args>)
+  command! -nargs=* ViperGrep :lua require("viper.functions").grep(<q-args>)
 
   command! -nargs=* ViperGitStatus :lua require("viper").files("git -c color.status=always status --short", { pattern = ".* (.*)" })
   ]], false)
