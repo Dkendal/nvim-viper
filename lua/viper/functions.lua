@@ -177,9 +177,12 @@ local function grep(source, _3fopts)
   end
   local function _3_(_241)
     local _4_0 = _241
-    if ((type(_4_0) == "table") and ((_4_0)[1] == "enter") and (nil ~= (_4_0)[2])) then
-      local selection = (_4_0)[2]
-      return inspect(selection)
+    if ((type(_4_0) == "table") and ((_4_0)[1] == "enter") and ((type((_4_0)[2]) == "table") and (nil ~= ((_4_0)[2])[1]) and (nil ~= ((_4_0)[2])[2]) and true)) then
+      local file = ((_4_0)[2])[1]
+      local line = ((_4_0)[2])[2]
+      local _ = ((_4_0)[2])[3]
+      cmd("e", ("+" .. line), file)
+      return cmd("keepjumps", "normal", "zz")
     end
   end
   return run_fzf({["on-change"] = _1_, config = _2_, process = parse_vimgrep, sink = _3_, source = {"shell", source}})

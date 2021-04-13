@@ -189,7 +189,10 @@
 
       :sink
       #(match $1
-        [:enter selection] (inspect selection))}))
+        [:enter [file line _]]
+        (do
+          (cmd :e (.. :+ line) file)
+          (cmd :keepjumps :normal :zz)))}))
 
 {
   :files files
