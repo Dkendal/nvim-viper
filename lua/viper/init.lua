@@ -323,7 +323,6 @@ function Mod.init()
   command! ViperRegisters :lua require("viper").registers()
   command! -nargs=* ViperFiles :lua require("viper.functions").files(<q-args>)
   command! -nargs=* ViperGrep :lua require("viper.functions").grep(<q-args>)
-
   command! -nargs=* ViperGitStatus :lua require("viper").files("git -c color.status=always status --short", { pattern = ".* (.*)" })
   ]], false)
 end

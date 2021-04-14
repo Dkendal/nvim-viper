@@ -35,7 +35,17 @@ all.fnl)
 lua/*.lua)
   src=$(subext "$1" ".lua" ".fnl")
   redo-ifchange "$src"
-  fennel --compile "$src" >"$3"
+
+  if grep -q ';\s*@nocompile' -- "$src"; then
+    exit
+  fi
+
+  fennel \
+    --add-package-path "lua/?.lua" \
+    --add-package-path "/usr/share/nvim/runtime/lua/?.lua" \
+    --add-fennel-path "lua/?.fnl" \
+    --compile "$src" >"$3" \
+
   # Automatically reload module in active vim session
   module="$1"
   module="${module##lua/}"
