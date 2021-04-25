@@ -11,7 +11,7 @@
   `(api.nvim_buf_call ,buf #(do ,...)))
 
 (fn with-main [...]
-  `(a.main #(do ,...)))
+  `(vim.schedule #(do ,...)))
 
 (fn buf-map [mode lhs rhs ?opts]
   (let

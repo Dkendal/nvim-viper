@@ -6,8 +6,18 @@
   "Write to stdout"
   (vim.api.nvim_out_write (.. msg "\n")))
 
-(fn main [arg]
-  "main function"
-  (local chan (vim.fn.sockconnect "pipe" "/tmp/nvim.sock" { :rpc true }))
+(fn request [cmd args ?opts]
+  "RPC request"
+  (let [opts (or ?opts {})
+        server (or opts.servername vim.v.servername)
+        chan (vim.fn.sockconnect "pipe" server { :rpc true }) ]
+    (vim.fn.rpcrequest chan cmd args)))
 
-  (vim.fn.rpcrequest chan "nvim_command" arg))
+(fn command [cmd ?opts]
+  "remote command"
+  (request "nvim_command" cmd ?opts))
+
+{
+ :request request
+ :command command
+}

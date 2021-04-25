@@ -1,23 +1,33 @@
 local format = string.format
-local a = require "viper.async"
+local a = require 'viper.async'
 
-local fn, api, cmd = vim.fn, vim.api, vim.cmd
+local fn = vim.fn
+local cmd = vim.cmd
+local api = vim.api
 
-local fzf_opts = { ansi = true, expect = { 'ctrl-c', 'ctrl-g', 'ctrl-d', 'enter' } }
+local fzf_opts = { --
+  ansi = true,
+  expect = { --
+    'ctrl-c',
+    'ctrl-g',
+    'ctrl-d',
+    'enter'
+  }
+}
 
 local function log(...)
-  local buf = vim.fn.bufadd("[Lua Messages]")
-  local objects = vim.tbl_map(vim.inspect, {...})
-  local str = table.concat(objects, " ")
-  local lines = vim.split(str, "\n")
+  local buf = vim.fn.bufadd('[Lua Messages]')
+  local objects = vim.tbl_map(vim.inspect, { ... })
+  local str = table.concat(objects, ' ')
+  local lines = vim.split(str, '\n')
   local function _0_()
     local function _1_()
       vim.bo.buflisted = true
       vim.bo.swapfile = false
-      vim.bo.buftype = "nofile"
+      vim.bo.buftype = 'nofile'
       vim.api.nvim_buf_set_lines(0, -1, -1, false, lines)
       local n = vim.api.nvim_buf_line_count(0)
-      return vim.api.nvim_win_set_cursor(0, {n, 0})
+      return vim.api.nvim_win_set_cursor(0, { n, 0 })
     end
     return vim.api.nvim_buf_call(buf, _1_)
   end
@@ -91,5 +101,5 @@ return {
   merge_fzf_opts = merge_fzf_opts,
   on_selection_change = on_selection_change,
   fzf_current_line = fzf_current_line,
-  log = log,
+  log = log
 }

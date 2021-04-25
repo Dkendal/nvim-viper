@@ -3,6 +3,9 @@
 (local fzf (require "fzf"))
 (local util (require "viper.util"))
 (local a (require "viper.async"))
+(local remote (require "viper.remote"))
+
+(local debounce (. (require "viper.timers") :debounce))
 
 (local api vim.api)
 
@@ -40,7 +43,7 @@
     (vim.tbl_deep_extend
       :keep
       {:ansi true
-       :expect [:ctrl-c :ctrl-g :ctrl-d :enter] 
+       :expect [:ctrl-c :ctrl-g :ctrl-d :enter]
        :color vim.o.background }
       opts )))
 
@@ -128,17 +131,20 @@
             out)
 
           (buf-map :t :<ESC> :<C-c>)
-          ; (buf-map :t :<C-t>
-          ;          (lambda [] (cmd :tabe (current-line))))
 
           (when opts.config (opts.config))
 
-          (when opts.on-change
-            (util.on_selection_change
-              #(opts.on-change
-                 (if opts.process (opts.process $1) $1))))
-
-          ; Run fzf as an external command
+          ; Call the on-change function when the line chagnes, debounced.
+          (util.on_selection_change
+            (debounce
+              100
+              (fn [raw-line]
+                (when opts.on-change
+                  (local current-line (if opts.process (opts.process raw-line) raw-line))
+                  (with-main
+                    (set vim.b.viper-raw-current-line raw-line)
+                    (set vim.b.viper-current-line current-line)
+                    (opts.on-change current-line))))))
 
           (->
             (match source
@@ -146,6 +152,7 @@
               [:vim expr] (exec-list expr)
               _ (match-error _))
 
+            ; Run fzf as an external command
             (fzf.provided_win_fzf fzf-opts)))
 
        (with-temp-buf)
@@ -159,11 +166,10 @@
     (a.sync)
     (a.main)))
 
-
 (lambda history []
   ""
   (run-fzf
-    { :source [:vim "oldfiles"]
+    {:source [:vim "oldfiles"]
 
      :sink
      #(match $1
@@ -174,7 +180,11 @@
   @param source string Shell command that returns a file path
   "
   (run-fzf
-    { :source [:shell source]
+    {:source [:shell source]
+     :fzf-opts
+     {
+      ; :preview "nvim echo"
+      }
 
      :sink
      #(match $1
@@ -194,7 +204,7 @@
   (local win (api.nvim_get_current_win))
 
   (run-fzf
-    { :source [:shell source]
+    {:source [:shell source]
 
      :process parse-vimgrep
 
@@ -208,6 +218,7 @@
          (api.nvim_buf_add_highlight buf ns hl_group (- line 1) 0 -1 )
          ; Change window to selected buffer
          (api.nvim_win_set_buf win buf)
+         ; Add on buf leave clear namespace
          (with-buf buf
                    ; Move cursor to selection, center screen
                    (vim.fn.setpos "." [buf line col])
