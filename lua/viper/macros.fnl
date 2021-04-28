@@ -1,5 +1,3 @@
-; @nocompile
-
 (local inspect (require :vim.inspect))
 (local fennel (require :fennel))
 
@@ -72,9 +70,22 @@
          ,rhs
          ,opts))))
 
-{
- :with-buf with-buf
+(fn func-name [callback]
+  (match callback
+    [{:filename filename :line line :bytestart s :byteend e }]
+    (.. filename ":" line "[" s ":" e "]")))
+
+(fn def-remote [callback]
+  "define remote function in registry"
+  (local name (func-name callback))
+  `(do
+    (local registry# (require :viper.registry))
+    (registry#.register ,name ,callback)
+    (.. "lua require(\"viper.registry\").call(\"" ,name "\", {})")))
+
+{:with-buf with-buf
  :with-main with-main
  :buf-map buf-map
  :map map
+ :def-remote def-remote
  }

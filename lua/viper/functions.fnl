@@ -9,6 +9,9 @@
 
 (local api vim.api)
 
+(local autocmd (require :viper.autocmd))
+(local au autocmd.au)
+
 (local mod {})
 
 (fn match-error [value]
@@ -77,8 +80,6 @@
     (vim.fn.winrestview view)
 
     (result-get result)))
-
-(local registry {})
 
 (fn with-temp-buf [func]
   "Execute func in a temporary buffer"
@@ -160,7 +161,7 @@
        (match
          ; If the process callback is supplied transform the value by it
          (where [key selection] opts.process) [key (opts.process selection)]
-         _ _)
+         k k)
        (sink))
     ; Run on the main thread
     (a.sync)
@@ -181,10 +182,6 @@
   "
   (run-fzf
     {:source [:shell source]
-     :fzf-opts
-     {
-      ; :preview "nvim echo"
-      }
 
      :sink
      #(match $1
@@ -203,6 +200,11 @@
   (local hl-group "Search")
   (local win (api.nvim_get_current_win))
 
+  (var buf 0)
+
+  (fn clear-highlight []
+    (api.nvim_buf_clear_namespace buf ns 0 -1 ))
+
   (run-fzf
     {:source [:shell source]
 
@@ -211,9 +213,9 @@
      :on-change
      (lambda [[file line col]]
        (local new? (= 0 (vim.fn.bufexists file)))
-       (local buf (vim.fn.bufadd file))
+       (set buf (vim.fn.bufadd file))
        (with-main
-         (api.nvim_buf_clear_namespace buf ns 0 -1 )
+         (clear-highlight)
          ; Highlight selection
          (api.nvim_buf_add_highlight buf ns hl_group (- line 1) 0 -1 )
          ; Change window to selected buffer
@@ -226,14 +228,16 @@
                    (when new? (cmd "filetype detect")))))
 
      :sink
-     #(match $1
-        [:enter [file line _]]
-        (do
-          (cmd :e (.. :+ line) file)
-          (cmd :keepjumps :normal :zz)))}))
+     #(do
+        (match $1
+          [:enter [file line _]]
+          (do
+            (cmd :e (.. :+ line) file)
+            (cmd :keepjumps :normal :zz)))
+        ; clean up
+        (clear-highlight))}))
 
-{
- :files files
+{:files files
  :history history
  :grep grep
  :log log

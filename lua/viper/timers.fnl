@@ -27,8 +27,7 @@
     (local func #(callback (unpack vargs)))
     (set timer (set-timeout timeout func))))
 
-{
- :set-timeout set-timeout
+{:set-timeout set-timeout
  :clear-timeout clear-timeout
  :debounce debounce
-}
+ }

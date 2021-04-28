@@ -4,6 +4,8 @@ local a = require("viper.async")
 local remote = require("viper.remote")
 local debounce = (require("viper.timers")).debounce
 local api = vim.api
+local autocmd = require("viper.autocmd")
+local au = autocmd.au
 local mod = {}
 local function match_error(value)
   return error(("No matching case for: " .. vim.inspect(value)))
@@ -41,7 +43,7 @@ local function parse_vimgrep(text)
   return {file, tonumber(line), tonumber(col)}
 end
 local function result_get(result)
-  assert((nil ~= result), string.format("Missing argument %s on %s:%s", "result", "lua/viper/functions.fnl", 60))
+  assert((nil ~= result), string.format("Missing argument %s on %s:%s", "result", "lua/viper/functions.fnl", 63))
   local _0_0 = result
   if ((type(_0_0) == "table") and ((_0_0)[1] == false) and (nil ~= (_0_0)[2])) then
     local reason = (_0_0)[2]
@@ -52,7 +54,7 @@ local function result_get(result)
   end
 end
 local function with_cursor(func)
-  assert((nil ~= func), string.format("Missing argument %s on %s:%s", "func", "lua/viper/functions.fnl", 66))
+  assert((nil ~= func), string.format("Missing argument %s on %s:%s", "func", "lua/viper/functions.fnl", 69))
   local view = vim.fn.winsaveview()
   local buf = api.nvim_get_current_buf()
   local win = api.nvim_get_current_win()
@@ -62,7 +64,6 @@ local function with_cursor(func)
   vim.fn.winrestview(view)
   return result_get(result)
 end
-local registry = {}
 local function with_temp_buf(func)
   local function _0_()
     local buf = api.nvim_create_buf(false, true)
@@ -79,7 +80,7 @@ local function with_temp_buf(func)
   return with_cursor(_0_)
 end
 local function run_fzf(opts)
-  assert((nil ~= opts), string.format("Missing argument %s on %s:%s", "opts", "lua/viper/functions.fnl", 100))
+  assert((nil ~= opts), string.format("Missing argument %s on %s:%s", "opts", "lua/viper/functions.fnl", 101))
   local fzf_opts = merge_fzf_opts((opts["fzf-opts"] or {}))
   local sink = opts.sink
   local source = opts.source
@@ -149,9 +150,9 @@ local function run_fzf(opts)
         local key = (_1_0)[1]
         local selection = (_1_0)[2]
         return {key, opts.process(selection)}
-      else
-        local _ = _1_0
-        return _
+      elseif (nil ~= _1_0) then
+        local k = _1_0
+        return k
       end
     end
     return sink(_4_())
@@ -169,7 +170,7 @@ local function history()
   return run_fzf({sink = _0_, source = {"vim", "oldfiles"}})
 end
 local function files(source, _3fopts)
-  assert((nil ~= source), string.format("Missing argument %s on %s:%s", "source", "lua/viper/functions.fnl", 178))
+  assert((nil ~= source), string.format("Missing argument %s on %s:%s", "source", "lua/viper/functions.fnl", 179))
   local function _0_(_241)
     local _1_0 = _241
     if ((type(_1_0) == "table") and ((_1_0)[1] == "enter") and (nil ~= (_1_0)[2])) then
@@ -177,26 +178,30 @@ local function files(source, _3fopts)
       return cmd("e", selection)
     end
   end
-  return run_fzf({["fzf-opts"] = {}, sink = _0_, source = {"shell", source}})
+  return run_fzf({sink = _0_, source = {"shell", source}})
 end
 local function grep(source, _3fopts)
-  assert((nil ~= source), string.format("Missing argument %s on %s:%s", "source", "lua/viper/functions.fnl", 193))
+  assert((nil ~= source), string.format("Missing argument %s on %s:%s", "source", "lua/viper/functions.fnl", 190))
   local opts = (opts or {})
   local ns = api.nvim_create_namespace("Viper Grep")
   local hl_group = "Search"
   local win = api.nvim_get_current_win()
+  local buf = 0
+  local function clear_highlight()
+    return api.nvim_buf_clear_namespace(buf, ns, 0, -1)
+  end
   local function _1_(_0_0)
     local _arg_0_ = _0_0
     local file = _arg_0_[1]
     local line = _arg_0_[2]
     local col = _arg_0_[3]
-    assert((nil ~= col), string.format("Missing argument %s on %s:%s", "col", "lua/viper/functions.fnl", 212))
-    assert((nil ~= line), string.format("Missing argument %s on %s:%s", "line", "lua/viper/functions.fnl", 212))
-    assert((nil ~= file), string.format("Missing argument %s on %s:%s", "file", "lua/viper/functions.fnl", 212))
+    assert((nil ~= col), string.format("Missing argument %s on %s:%s", "col", "lua/viper/functions.fnl", 214))
+    assert((nil ~= line), string.format("Missing argument %s on %s:%s", "line", "lua/viper/functions.fnl", 214))
+    assert((nil ~= file), string.format("Missing argument %s on %s:%s", "file", "lua/viper/functions.fnl", 214))
     local new_3f = (0 == vim.fn.bufexists(file))
-    local buf = vim.fn.bufadd(file)
+    buf = vim.fn.bufadd(file)
     local function _2_()
-      api.nvim_buf_clear_namespace(buf, ns, 0, -1)
+      clear_highlight()
       api.nvim_buf_add_highlight(buf, ns, hl_group, (line - 1), 0, -1)
       api.nvim_win_set_buf(win, buf)
       local function _3_()
@@ -211,14 +216,17 @@ local function grep(source, _3fopts)
     return vim.schedule(_2_)
   end
   local function _2_(_241)
-    local _3_0 = _241
-    if ((type(_3_0) == "table") and ((_3_0)[1] == "enter") and ((type((_3_0)[2]) == "table") and (nil ~= ((_3_0)[2])[1]) and (nil ~= ((_3_0)[2])[2]) and true)) then
-      local file = ((_3_0)[2])[1]
-      local line = ((_3_0)[2])[2]
-      local _ = ((_3_0)[2])[3]
-      cmd("e", ("+" .. line), file)
-      return cmd("keepjumps", "normal", "zz")
+    do
+      local _3_0 = _241
+      if ((type(_3_0) == "table") and ((_3_0)[1] == "enter") and ((type((_3_0)[2]) == "table") and (nil ~= ((_3_0)[2])[1]) and (nil ~= ((_3_0)[2])[2]) and true)) then
+        local file = ((_3_0)[2])[1]
+        local line = ((_3_0)[2])[2]
+        local _ = ((_3_0)[2])[3]
+        cmd("e", ("+" .. line), file)
+        cmd("keepjumps", "normal", "zz")
+      end
     end
+    return clear_highlight()
   end
   return run_fzf({["on-change"] = _1_, process = parse_vimgrep, sink = _2_, source = {"shell", source}})
 end

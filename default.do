@@ -14,11 +14,23 @@ subext() {
   echo "${1%%$2}$3"
 }
 
+reload() {
+  local mod="$1"
+
+  if [ -r "$sock" ] && [ ! "$mod" = "viper.remote" ] ; then
+    nvim --headless \
+      +"lua require('viper.remote').command('lua reload(\"$mod\")', { servername = \"$sock\" })" \
+      +q
+    warn "reloaded $mod"
+  fi
+}
+
 case "$1" in
 all)
   redo-ifchange bin/fennel
   redo-ifchange lua/viper/remote.lua.reload
   redo-ifchange lua/viper/registry.lua.reload
+  redo-ifchange lua/viper/autocmd.lua.reload
   redo-ifchange lua/viper/timers.lua.reload
   redo-ifchange lua/viper/functions.lua.reload
   ;;
@@ -37,20 +49,11 @@ lua/*.lua.reload)
   mod="${mod%%.lua}"
   mod="${mod%%.init}"
 
-  if [ -r "$sock" ] && [ ! "$mod" = "viper.remote" ] ; then
-    nvim --headless \
-      +"lua require('viper.remote').command('lua reload(\"$mod\")', { servername = \"$sock\" })" \
-      +q
-    warn "reloaded $mod"
-  fi
+  reload "$mod"
   ;;
 
 lua/*.lua)
   src=$(subext "$1" ".lua" ".fnl")
-
-  if grep -q ';\s*@nocompile' -- "$src"; then
-    exit
-  fi
 
   redo-ifchange "$src"
 
