@@ -16,6 +16,15 @@
 
 (local mod {})
 
+(fn present? [term]
+  "Test if term is not the empty string or nil"
+  (and (~= term "")
+       (~= term nil)))
+
+(fn blank? [term]
+  "Test if term is the empty string or nil"
+  (not (present? term)))
+
 (fn match-error [value]
   (error (.. "No matching case for: " (vim.inspect value))))
 
@@ -173,7 +182,7 @@
   ""
   (run-fzf
    {:source [:vim "oldfiles"]
-
+    :process #($1:match "^%d+: (.*)")
     :sink
     #(match $1
        [:enter selection] (cmd :e selection))}))
@@ -214,7 +223,6 @@
 
     :on-change
     (fn [[file line col]]
-      (local new? (= 0 (vim.fn.bufexists file)))
       (set buf (vim.fn.bufadd file))
 
       (with-main (clear-highlight buf))
@@ -222,7 +230,6 @@
       (if (and file line)
         (with-main
           ; Highlight selection
-          (dump [file line col])
           (api.nvim_buf_add_highlight buf ns hl_group (- line 1) 0 -1)
           ; Change window to selected buffer
           (api.nvim_win_set_buf win buf)
@@ -231,7 +238,8 @@
             ; Move cursor to selection, center screen
             (vim.fn.setpos "." [buf line col])
             (cmd "keepjumps normal zz")
-            (when new? (cmd "filetype detect"))))))
+            ; Reload the filetype if it's not set
+            (when (blank? vim.bo.filetype) (cmd "filetype detect"))))))
 
     :sink
     #(do

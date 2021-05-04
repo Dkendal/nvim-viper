@@ -9,6 +9,12 @@ local api = vim.api
 local autocmd0 = require("viper.autocmd")
 local au0 = autocmd0.au
 local mod = {}
+local function present_3f(term)
+  return ((term ~= "") and (term ~= nil))
+end
+local function blank_3f(term)
+  return not present_3f(term)
+end
 local function match_error(value)
   return error(("No matching case for: " .. vim.inspect(value)))
 end
@@ -162,13 +168,16 @@ local function run_fzf(opts)
 end
 local function history()
   local function _0_(_241)
-    local _1_0 = _241
-    if ((type(_1_0) == "table") and ((_1_0)[1] == "enter") and (nil ~= (_1_0)[2])) then
-      local selection = (_1_0)[2]
+    return _241:match("^%d+: (.*)")
+  end
+  local function _1_(_241)
+    local _2_0 = _241
+    if ((type(_2_0) == "table") and ((_2_0)[1] == "enter") and (nil ~= (_2_0)[2])) then
+      local selection = (_2_0)[2]
       return cmd("e", selection)
     end
   end
-  return run_fzf({sink = _0_, source = {"vim", "oldfiles"}})
+  return run_fzf({process = _0_, sink = _1_, source = {"vim", "oldfiles"}})
 end
 local function files(source, _3fopts)
   local function _0_(_241)
@@ -194,7 +203,6 @@ local function grep(source, _3fopts)
     local file = _arg_0_[1]
     local line = _arg_0_[2]
     local col = _arg_0_[3]
-    local new_3f = (0 == vim.fn.bufexists(file))
     buf = vim.fn.bufadd(file)
     local function _2_()
       return clear_highlight(buf)
@@ -202,13 +210,12 @@ local function grep(source, _3fopts)
     vim.schedule(_2_)
     if (file and line) then
       local function _3_()
-        dump({file, line, col})
         api.nvim_buf_add_highlight(buf, ns, hl_group, (line - 1), 0, -1)
         api.nvim_win_set_buf(win, buf)
         local function _4_()
           vim.fn.setpos(".", {buf, line, col})
           cmd("keepjumps normal zz")
-          if new_3f then
+          if blank_3f(vim.bo.filetype) then
             return cmd("filetype detect")
           end
         end
