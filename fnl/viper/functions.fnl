@@ -4,6 +4,8 @@
 (local util (require "viper.util"))
 (local a (require "viper.async"))
 (local remote (require "viper.remote"))
+(local autocmd (require "viper.autocmd"))
+(local au autocmd.au)
 
 (local debounce (. (require "viper.timers") :debounce))
 
@@ -29,26 +31,26 @@
   (local lines (vim.split str "\n"))
 
   (a.main
-    #(vim.api.nvim_buf_call
-       buf
-       #(do
-          (set vim.bo.buflisted true)
-          (set vim.bo.swapfile false)
-          (set vim.bo.buftype "nofile")
+   #(vim.api.nvim_buf_call
+     buf
+     #(do
+        (set vim.bo.buflisted true)
+        (set vim.bo.swapfile false)
+        (set vim.bo.buftype "nofile")
 
-          (vim.api.nvim_buf_set_lines 0 -1 -1 false lines)
-          (local n (vim.api.nvim_buf_line_count 0))
-          (vim.api.nvim_win_set_cursor 0 [n 0]))))
+        (vim.api.nvim_buf_set_lines 0 -1 -1 false lines)
+        (local n (vim.api.nvim_buf_line_count 0))
+        (vim.api.nvim_win_set_cursor 0 [n 0]))))
   ...)
 
 (fn merge-fzf-opts [opts]
   (util.tbl2flags
-    (vim.tbl_deep_extend
-      :keep
-      {:ansi true
-       :expect [:ctrl-c :ctrl-g :ctrl-d :enter]
-       :color vim.o.background }
-      opts )))
+   (vim.tbl_deep_extend
+    :keep
+    {:ansi true
+     :expect [:ctrl-c :ctrl-g :ctrl-d :enter]
+     :color vim.o.background}
+    opts)))
 
 (fn exec-list [vim-expr]
   "Execute a vim expression, returning captured result as a list."
@@ -60,18 +62,17 @@
   (local (file line col) (text:match "^(.+):(%d+):(%d+):"))
   [file (tonumber line) (tonumber col)])
 
-(lambda result-get [result]
+(fn result-get [result]
   "Return the success value of a result, or throw an error."
   (match result
     [false reason] (error reason)
     [true value] value))
 
-(lambda with-cursor [func]
+(fn with-cursor [func]
   "Restore buffer position after func completes"
-  (let
-    [view (vim.fn.winsaveview)
-     buf (api.nvim_get_current_buf)
-     win (api.nvim_get_current_win)]
+  (let [view (vim.fn.winsaveview)
+        buf (api.nvim_get_current_buf)
+        win (api.nvim_get_current_win)]
 
     (local result [(pcall func)])
 
@@ -86,7 +87,7 @@
   (with-cursor
     (fn []
       (local buf (api.nvim_create_buf false true))
-      (vim.cmd (.. "botright sb "  buf))
+      (vim.cmd (.. "botright sb " buf))
       (api.nvim_win_set_height 0 10)
       (set vim.wo.number false)
       (set vim.wo.signcolumn "no")
@@ -98,7 +99,7 @@
 
       (result-get result))))
 
-(lambda run-fzf [opts]
+(fn run-fzf [opts]
   "
   Params
 
@@ -111,83 +112,84 @@
   active
   "
   (local fzf-opts
-    (-> opts.fzf-opts
-        (or {})
-        (merge-fzf-opts)))
+         (-> opts.fzf-opts
+             (or {})
+             (merge-fzf-opts)))
 
   (local sink opts.sink)
   (local source opts.source)
 
   (->
-    #(->
-       #(do
-          ; Any setup to run before running but within the temp buffer
-          (lambda current-line []
-            (local pattern "> (.*)")
-            (var out nil)
-            (each [k v (ipairs (api.nvim_buf_get_lines 0 0 -3 false)) :until out]
-              (local m (string.match v pattern))
-              (when m
-                (set out m)))
-            out)
+   #(->
+     #(do
+        ; Any setup to run before running but within the temp buffer
+        (fn current-line []
+          (local pattern "> (.*)")
+          (var out nil)
+          (each [k v (ipairs (api.nvim_buf_get_lines 0 0 -3 false)) :until out]
+                (local m (string.match v pattern))
+                (when m
+                  (set out m)))
+          out)
 
-          (buf-map :t :<ESC> :<C-c>)
+        (buf-map :t :<ESC> :<C-c>)
 
-          (when opts.config (opts.config))
+        (when opts.config (opts.config))
 
-          ; Call the on-change function when the line chagnes, debounced.
-          (util.on_selection_change
-            (debounce
-              100
-              (fn [raw-line]
-                (when opts.on-change
-                  (local current-line (if opts.process (opts.process raw-line) raw-line))
-                  (with-main
-                    (set vim.b.viper-raw-current-line raw-line)
-                    (set vim.b.viper-current-line current-line)
-                    (opts.on-change current-line))))))
+        ; Call the on-change function when the line chagnes, debounced.
+        (util.on_selection_change
+         (debounce
+          100
+          (fn [raw-line]
+            (when opts.on-change
+              (local current-line (if opts.process (opts.process raw-line) raw-line))
+              (when current-line
+                (with-main
+                  (set vim.b.viper-raw-current-line raw-line)
+                  (set vim.b.viper-current-line current-line)
+                  (opts.on-change current-line)))))))
 
-          (->
-            (match source
-              [:shell shellcmd] shellcmd
-              [:vim expr] (exec-list expr)
-              _ (match-error _))
+        (->
+         (match source
+           [:shell shellcmd] shellcmd
+           [:vim expr] (exec-list expr)
+           _ (match-error _))
 
-            ; Run fzf as an external command
-            (fzf.provided_win_fzf fzf-opts)))
+         ; Run fzf as an external command
+         (fzf.provided_win_fzf fzf-opts)))
 
-       (with-temp-buf)
-       ; Result of fzf is fed to sink
-       (match
-         ; If the process callback is supplied transform the value by it
-         (where [key selection] opts.process) [key (opts.process selection)]
-         k k)
-       (sink))
-    ; Run on the main thread
-    (a.sync)
-    (a.main)))
+     (with-temp-buf)
+     ; Result of fzf is fed to sink
+     (match
+       ; If the process callback is supplied transform the value by it
+       (where [key selection] opts.process) [key (opts.process selection)]
+       k k)
+     (sink))
+   ; Run on the main thread
+   (a.sync)
+   (a.main)))
 
-(lambda history []
+(fn history []
   ""
   (run-fzf
-    {:source [:vim "oldfiles"]
+   {:source [:vim "oldfiles"]
 
-     :sink
-     #(match $1
-        [:enter selection] (cmd :e selection))}))
+    :sink
+    #(match $1
+       [:enter selection] (cmd :e selection))}))
 
-(lambda files [source ?opts]
+(fn files [source ?opts]
   "
   @param source string Shell command that returns a file path
   "
   (run-fzf
-    {:source [:shell source]
+   {:source [:shell source]
 
-     :sink
-     #(match $1
-        [:enter selection] (cmd :e selection))}))
+    :sink
+    #(match $1
+       [:enter selection] (cmd :e selection))}))
 
-(lambda grep [source ?opts]
+(fn grep [source ?opts]
   "
   Params
 
@@ -202,43 +204,46 @@
 
   (var buf 0)
 
-  (fn clear-highlight []
-    (api.nvim_buf_clear_namespace buf ns 0 -1 ))
+  (fn clear-highlight [buf]
+    (api.nvim_buf_clear_namespace buf ns 0 -1))
 
   (run-fzf
-    {:source [:shell source]
+   {:source [:shell source]
 
-     :process parse-vimgrep
+    :process parse-vimgrep
 
-     :on-change
-     (lambda [[file line col]]
-       (local new? (= 0 (vim.fn.bufexists file)))
-       (set buf (vim.fn.bufadd file))
-       (with-main
-         (clear-highlight)
-         ; Highlight selection
-         (api.nvim_buf_add_highlight buf ns hl_group (- line 1) 0 -1 )
-         ; Change window to selected buffer
-         (api.nvim_win_set_buf win buf)
-         ; Add on buf leave clear namespace
-         (with-buf buf
-                   ; Move cursor to selection, center screen
-                   (vim.fn.setpos "." [buf line col])
-                   (cmd "keepjumps normal zz")
-                   (when new? (cmd "filetype detect")))))
+    :on-change
+    (fn [[file line col]]
+      (local new? (= 0 (vim.fn.bufexists file)))
+      (set buf (vim.fn.bufadd file))
 
-     :sink
-     #(do
-        (match $1
-          [:enter [file line _]]
-          (do
-            (cmd :e (.. :+ line) file)
-            (cmd :keepjumps :normal :zz)))
-        ; clean up
-        (clear-highlight))}))
+      (with-main (clear-highlight buf))
+
+      (if (and file line)
+        (with-main
+          ; Highlight selection
+          (dump [file line col])
+          (api.nvim_buf_add_highlight buf ns hl_group (- line 1) 0 -1)
+          ; Change window to selected buffer
+          (api.nvim_win_set_buf win buf)
+          ; Add on buf leave clear namespace
+          (with-buf buf
+            ; Move cursor to selection, center screen
+            (vim.fn.setpos "." [buf line col])
+            (cmd "keepjumps normal zz")
+            (when new? (cmd "filetype detect"))))))
+
+    :sink
+    #(do
+       (match $1
+         [:enter [file line _]]
+         (do
+           (cmd :e (.. :+ line) file)
+           (cmd :keepjumps :normal :zz)))
+       ; clean up
+       (clear-highlight))}))
 
 {:files files
  :history history
  :grep grep
- :log log
- }
+ :log log}

@@ -4,25 +4,30 @@ exec >&2
 
 set -euo pipefail
 
+source scripts/fnamemodify.sh
+
 sock="/tmp/nvim.sock"
 
 warn() {
   echo >&2 "$1"
 }
 
-subext() {
-  echo "${1%%$2}$3"
-}
-
 reload() {
   local mod="$1"
 
-  if [ -r "$sock" ] && [ ! "$mod" = "viper.remote" ] ; then
+  if [ -r "$sock" ] && [ ! "$mod" = "viper.remote" ]; then
     nvim --headless \
       +"lua require('viper.remote').command('lua reload(\"$mod\")', { servername = \"$sock\" })" \
       +q
+
     warn "reloaded $mod"
   fi
+}
+
+arg1="$1"
+
+@@() {
+  fnamemodify "$arg1" "$1"
 }
 
 case "$1" in
@@ -30,9 +35,11 @@ all)
   redo-ifchange bin/fennel
   redo-ifchange lua/viper/remote.lua.reload
   redo-ifchange lua/viper/registry.lua.reload
+  redo-ifchange lua/viper/list.lua.reload
   redo-ifchange lua/viper/autocmd.lua.reload
   redo-ifchange lua/viper/timers.lua.reload
   redo-ifchange lua/viper/functions.lua.reload
+  redo-ifchange lua/viper/test.lua.reload
   ;;
 
 clean)
@@ -40,29 +47,30 @@ clean)
   ;;
 
 lua/*.lua.reload)
-  lua="${1%%.reload}"
+  lua=$(@@ :r)
+
   redo-ifchange "$lua"
   # Automatically reload module in active vim session
-  mod="$lua"
-  mod="${mod##lua/}"
-  mod="${mod//\//.}"
-  mod="${mod%%.lua}"
-  mod="${mod%%.init}"
-
-  reload "$mod"
+  reload "$(@@ 'r:r:s?lua/??:s?/init$??:s?/?.?')"
   ;;
 
 lua/*.lua)
-  src=$(subext "$1" ".lua" ".fnl")
+  fnl="$(@@ :gs?lua?fnl?)"
+  redo-ifchange "$fnl"
 
-  redo-ifchange "$src"
+  if grep require-macros --silent; then
+    redo-ifchange fnl/viper/macros.fnl
+  fi
+
+  if grep import-macros --silent; then
+    redo-ifchange fnl/viper/macros.fnl
+  fi
 
   fennel \
     --add-package-path "lua/?.lua" \
     --add-package-path "/usr/share/nvim/runtime/lua/?.lua" \
-    --add-fennel-path "lua/?.fnl" \
-    --compile "$src" >"$3"
-
+    --add-fennel-path "fnl/?.fnl" \
+    --compile "$fnl" >"$3"
   ;;
 
 *)

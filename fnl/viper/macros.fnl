@@ -6,7 +6,7 @@
              (fout:read "*l")))
 
 (fn with-buf [buf ...]
-  `(api.nvim_buf_call ,buf #(do ,...)))
+  `(vim.api.nvim_buf_call ,buf #(do ,...)))
 
 (fn with-main [...]
   `(vim.schedule #(do ,...)))
@@ -35,7 +35,7 @@
     `(do
        ,(when callback?
           `((. (require :viper.registry) :register) ,func-name ,func))
-       (api.nvim_buf_set_keymap
+       (vim.api.nvim_buf_set_keymap
          0
          ,mode
          ,lhs
@@ -63,7 +63,7 @@
     `(do
        ,(when callback?
           `((. (require :viper.registry) :register) ,func-name ,func))
-       (api.nvim_buf_set_keymap
+       (vim.api.nvim_buf_set_keymap
          0
          ,mode
          ,lhs
@@ -75,17 +75,25 @@
     [{:filename filename :line line :bytestart s :byteend e }]
     (.. filename ":" line "[" s ":" e "]")))
 
-(fn def-remote [callback]
-  "define remote function in registry"
-  (local name (func-name callback))
+(fn defcallback [callback]
+  ; (let [name (tostring (gensym :viper_callback))]
+  (let [name (func-name callback)
+        R `(require :viper.registry) ]
   `(do
-    (local registry# (require :viper.registry))
-    (registry#.register ,name ,callback)
-    (.. "lua require(\"viper.registry\").call(\"" ,name "\", {})")))
+     ((. ,R :register) ,name ,callback)
+     ,name)))
+
+(fn with-augroup [name ...]
+  `(do
+     (vim.cmd ,(.. "augroup " name))
+     (vim.cmd :autocmd!)
+     ,...
+     (vim.cmd "augroup END")))
 
 {:with-buf with-buf
  :with-main with-main
+ :with-augroup with-augroup
  :buf-map buf-map
  :map map
- :def-remote def-remote
+ :defcallback defcallback
  }
