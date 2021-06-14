@@ -1,4 +1,4 @@
-(require-macros :viper.macros)
+(require-macros :viper.vim-macro)
 
 (local A (require :viper.autocmd))
 (local R (require :viper.registry))

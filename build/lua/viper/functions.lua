@@ -89,64 +89,65 @@ local function run_fzf(opts)
   local fzf_opts = merge_fzf_opts((opts["fzf-opts"] or {}))
   local sink = opts.sink
   local source = opts.source
+  local function current_line()
+    local pattern = "> (.*)"
+    local out = nil
+    for k, v in ipairs(api.nvim_buf_get_lines(0, 0, -3, false)) do
+      if out then break end
+      local m = string.match(v, pattern)
+      if m then
+        out = m
+      end
+    end
+    return out
+  end
+  local function selection_change(raw_line)
+    if opts["on-change"] then
+      local current_line0
+      if opts.process then
+        current_line0 = opts.process(raw_line)
+      else
+        current_line0 = raw_line
+      end
+      if current_line0 then
+        local function _1_()
+          vim.b["viper-raw-current-line"] = raw_line
+          vim.b["viper-current-line"] = current_line0
+          return opts["on-change"](current_line0)
+        end
+        return vim.schedule(_1_)
+      end
+    end
+  end
+  local function body()
+    dump(opts)
+    dump(source)
+    do
+      vim.api.nvim_buf_set_keymap(0, "t", "<ESC>", "<C-c>", {})
+    end
+    if opts.config then
+      opts.config()
+    end
+    util.on_selection_change(debounce(100, selection_change))
+    local _2_
+    do
+      local _1_0 = source
+      if ((type(_1_0) == "table") and ((_1_0)[1] == "shell") and (nil ~= (_1_0)[2])) then
+        local shellcmd = (_1_0)[2]
+        _2_ = shellcmd
+      elseif ((type(_1_0) == "table") and ((_1_0)[1] == "vim") and (nil ~= (_1_0)[2])) then
+        local expr = (_1_0)[2]
+        _2_ = exec_list(expr)
+      else
+        local _ = _1_0
+        _2_ = match_error(_)
+      end
+    end
+    return fzf.provided_win_fzf(_2_, fzf_opts)
+  end
   local function _0_()
     local function _4_()
-      local _1_0, _2_0, _3_0 = nil, nil, nil
-      local function _4_()
-        local function current_line()
-          local pattern = "> (.*)"
-          local out = nil
-          for k, v in ipairs(api.nvim_buf_get_lines(0, 0, -3, false)) do
-            if out then break end
-            local m = string.match(v, pattern)
-            if m then
-              out = m
-            end
-          end
-          return out
-        end
-        do
-          vim.api.nvim_buf_set_keymap(0, "t", "<ESC>", "<C-c>", {})
-        end
-        if opts.config then
-          opts.config()
-        end
-        local function _6_(raw_line)
-          if opts["on-change"] then
-            local current_line0
-            if opts.process then
-              current_line0 = opts.process(raw_line)
-            else
-              current_line0 = raw_line
-            end
-            if current_line0 then
-              local function _8_()
-                vim.b["viper-raw-current-line"] = raw_line
-                vim.b["viper-current-line"] = current_line0
-                return opts["on-change"](current_line0)
-              end
-              return vim.schedule(_8_)
-            end
-          end
-        end
-        util.on_selection_change(debounce(100, _6_))
-        local _8_
-        do
-          local _7_0 = source
-          if ((type(_7_0) == "table") and ((_7_0)[1] == "shell") and (nil ~= (_7_0)[2])) then
-            local shellcmd = (_7_0)[2]
-            _8_ = shellcmd
-          elseif ((type(_7_0) == "table") and ((_7_0)[1] == "vim") and (nil ~= (_7_0)[2])) then
-            local expr = (_7_0)[2]
-            _8_ = exec_list(expr)
-          else
-            local _ = _7_0
-            _8_ = match_error(_)
-          end
-        end
-        return fzf.provided_win_fzf(_8_, fzf_opts)
-      end
-      _1_0, _2_0, _3_0 = with_temp_buf(_4_)
+      local _1_0, _2_0, _3_0 = with_temp_buf(body)
       local _5_
       do
         local key = (_1_0)[1]
