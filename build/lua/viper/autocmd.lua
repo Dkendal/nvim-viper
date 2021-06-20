@@ -12,33 +12,51 @@ local function au_cmd(opts)
   local pattern = opts.pattern
   local nested
   do
-    local res_0_ = opts.nested
-    nested = (res_0_ and res_0_)
+    local t_0_ = opts
+    if (nil ~= t_0_) then
+      t_0_ = (t_0_).nested
+    end
+    nested = t_0_
   end
   local once
   do
-    local res_0_ = opts.once
-    once = (res_0_ and res_0_)
+    local t_1_ = opts
+    if (nil ~= t_1_) then
+      t_1_ = (t_1_).once
+    end
+    once = t_1_
   end
   local buffer
   do
-    local res_0_ = opts.buffer
-    buffer = (res_0_ and res_0_)
+    local t_2_ = opts
+    if (nil ~= t_2_) then
+      t_2_ = (t_2_).buffer
+    end
+    buffer = t_2_
   end
   local bang
   do
-    local res_0_ = opts.bang
-    bang = (res_0_ and res_0_)
+    local t_3_ = opts
+    if (nil ~= t_3_) then
+      t_3_ = (t_3_).bang
+    end
+    bang = t_3_
   end
   local callback
   do
-    local res_0_ = opts.callback
-    callback = (res_0_ and res_0_)
+    local t_4_ = opts
+    if (nil ~= t_4_) then
+      t_4_ = (t_4_).callback
+    end
+    callback = t_4_
   end
   local cmd
   do
-    local res_0_ = opts.cmd
-    cmd = (res_0_ and res_0_)
+    local t_5_ = opts
+    if (nil ~= t_5_) then
+      t_5_ = (t_5_).cmd
+    end
+    cmd = t_5_
   end
   local cmd0
   if callback then
@@ -55,15 +73,15 @@ local function au_cmd(opts)
   end
   local _4_
   do
-    local _3_0 = buffer
-    if (_3_0 == nil) then
+    local _3_ = buffer
+    if (_3_ == nil) then
       _4_ = nil
-    elseif (_3_0 == false) then
+    elseif (_3_ == false) then
       _4_ = nil
-    elseif (_3_0 == true) then
+    elseif (_3_ == true) then
       _4_ = "<buffer>"
-    elseif (nil ~= _3_0) then
-      local n = _3_0
+    elseif (nil ~= _3_) then
+      local n = _3_
       _4_ = ("<buffer=" .. n .. ">")
     else
     _4_ = nil

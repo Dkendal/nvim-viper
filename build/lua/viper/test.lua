@@ -5,7 +5,7 @@ local function _0_()
     local function _2_()
       return print("hello world from lua")
     end
-    ; (require("viper.registry")).register("fnl/viper/test.fnl:8[231:261]", _2_)
+    do end (require("viper.registry")).register("fnl/viper/test.fnl:8[231:261]", _2_)
     return "fnl/viper/test.fnl:8[231:261]"
   end
   return A.au("event", {"WinLeave", "BufWinLeave"}, "pattern", "*", "callback", _1_())

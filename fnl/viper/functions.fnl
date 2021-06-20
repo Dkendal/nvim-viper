@@ -151,15 +151,14 @@
         (fzf.provided_win_fzf fzf-opts)))
 
   (fn call []
-    ->
-    body
-    (with-temp-buf) ; Result of fzf is fed to sink
-    (match ; If the process callback is supplied transform the value by it
-      (where [key selection] opts.process)
-      [key (opts.process selection)]
-      k
-      k)
-    (sink))
+    (-> body
+        (with-temp-buf) ; Result of fzf is fed to sink
+        (match ; If the process callback is supplied transform the value by it
+          (where [key selection] opts.process)
+          [key (opts.process selection)]
+          k
+          k)
+        (sink)))
 
   (a.main (a.sync call)))
 

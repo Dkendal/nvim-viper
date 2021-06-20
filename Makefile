@@ -13,6 +13,9 @@ FNL += --compile
 lua_files := $(patsubst fnl/%.fnl, build/lua/%.lua, $(wildcard fnl/**/*.fnl))
 lua_files := $(filter-out %-macro.lua, $(lua_files))
 
+reset := \e[0;0m
+blue := \e[1;34m
+
 all:: $(dir lua_files) $(lua_files)
 
 @PHONY:
@@ -21,7 +24,7 @@ clean::
 
 build/lua/%.lua:: fnl/%.fnl
 	mkdir -p $(dir $@)
-	$(FNL) $< > $@
+	if ! $(FNL) $< > $@; then rm $@; fi
 
 % ::
 	@echo $@

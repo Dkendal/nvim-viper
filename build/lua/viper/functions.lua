@@ -51,12 +51,12 @@ local function parse_vimgrep(text)
   return {file, tonumber(line), tonumber(col)}
 end
 local function result_get(result)
-  local _0_0 = result
-  if ((type(_0_0) == "table") and ((_0_0)[1] == false) and (nil ~= (_0_0)[2])) then
-    local reason = (_0_0)[2]
+  local _0_ = result
+  if ((type(_0_) == "table") and ((_0_)[1] == false) and (nil ~= (_0_)[2])) then
+    local reason = (_0_)[2]
     return error(reason)
-  elseif ((type(_0_0) == "table") and ((_0_0)[1] == true) and (nil ~= (_0_0)[2])) then
-    local value = (_0_0)[2]
+  elseif ((type(_0_) == "table") and ((_0_)[1] == true) and (nil ~= (_0_)[2])) then
+    local value = (_0_)[2]
     return value
   end
 end
@@ -121,7 +121,7 @@ local function run_fzf(opts)
   end
   local function body()
     dump(opts)
-    dump(source)
+    dump(opts)
     do
       vim.api.nvim_buf_set_keymap(0, "t", "<ESC>", "<C-c>", {})
     end
@@ -131,50 +131,49 @@ local function run_fzf(opts)
     util.on_selection_change(debounce(100, selection_change))
     local _2_
     do
-      local _1_0 = source
-      if ((type(_1_0) == "table") and ((_1_0)[1] == "shell") and (nil ~= (_1_0)[2])) then
-        local shellcmd = (_1_0)[2]
+      local _1_ = source
+      if ((type(_1_) == "table") and ((_1_)[1] == "shell") and (nil ~= (_1_)[2])) then
+        local shellcmd = (_1_)[2]
         _2_ = shellcmd
-      elseif ((type(_1_0) == "table") and ((_1_0)[1] == "vim") and (nil ~= (_1_0)[2])) then
-        local expr = (_1_0)[2]
+      elseif ((type(_1_) == "table") and ((_1_)[1] == "vim") and (nil ~= (_1_)[2])) then
+        local expr = (_1_)[2]
         _2_ = exec_list(expr)
       else
-        local _ = _1_0
+        local _ = _1_
         _2_ = match_error(_)
       end
     end
     return fzf.provided_win_fzf(_2_, fzf_opts)
   end
-  local function _0_()
-    local function _4_()
-      local _1_0, _2_0, _3_0 = with_temp_buf(body)
-      local _5_
-      do
-        local key = (_1_0)[1]
-        local selection = (_1_0)[2]
-        _5_ = (((type(_1_0) == "table") and (nil ~= (_1_0)[1]) and (nil ~= (_1_0)[2])) and opts.process)
+  local function call()
+    local function _1_()
+      local _0_ = with_temp_buf(body)
+      local function _2_()
+        local key = (_0_)[1]
+        local selection = (_0_)[2]
+        return opts.process
       end
-      if _5_ then
-        local key = (_1_0)[1]
-        local selection = (_1_0)[2]
+      if (((type(_0_) == "table") and (nil ~= (_0_)[1]) and (nil ~= (_0_)[2])) and _2_()) then
+        local key = (_0_)[1]
+        local selection = (_0_)[2]
         return {key, opts.process(selection)}
-      elseif (nil ~= _1_0) then
-        local k = _1_0
+      elseif (nil ~= _0_) then
+        local k = _0_
         return k
       end
     end
-    return sink(_4_())
+    return sink(_1_())
   end
-  return a.main(a.sync(_0_))
+  return a.main(a.sync(call))
 end
 local function history()
   local function _0_(_241)
     return _241:match("^%d+: (.*)")
   end
   local function _1_(_241)
-    local _2_0 = _241
-    if ((type(_2_0) == "table") and ((_2_0)[1] == "enter") and (nil ~= (_2_0)[2])) then
-      local selection = (_2_0)[2]
+    local _2_ = _241
+    if ((type(_2_) == "table") and ((_2_)[1] == "enter") and (nil ~= (_2_)[2])) then
+      local selection = (_2_)[2]
       return cmd("e", selection)
     end
   end
@@ -182,9 +181,9 @@ local function history()
 end
 local function files(source, _3fopts)
   local function _0_(_241)
-    local _1_0 = _241
-    if ((type(_1_0) == "table") and ((_1_0)[1] == "enter") and (nil ~= (_1_0)[2])) then
-      local selection = (_1_0)[2]
+    local _1_ = _241
+    if ((type(_1_) == "table") and ((_1_)[1] == "enter") and (nil ~= (_1_)[2])) then
+      local selection = (_1_)[2]
       return cmd("e", selection)
     end
   end
@@ -199,8 +198,8 @@ local function grep(source, _3fopts)
   local function clear_highlight(buf0)
     return api.nvim_buf_clear_namespace(buf0, ns, 0, -1)
   end
-  local function _1_(_0_0)
-    local _arg_0_ = _0_0
+  local function _1_(_0_)
+    local _arg_0_ = _0_
     local file = _arg_0_[1]
     local line = _arg_0_[2]
     local col = _arg_0_[3]
@@ -227,11 +226,11 @@ local function grep(source, _3fopts)
   end
   local function _2_(_241)
     do
-      local _3_0 = _241
-      if ((type(_3_0) == "table") and ((_3_0)[1] == "enter") and ((type((_3_0)[2]) == "table") and (nil ~= ((_3_0)[2])[1]) and (nil ~= ((_3_0)[2])[2]) and true)) then
-        local file = ((_3_0)[2])[1]
-        local line = ((_3_0)[2])[2]
-        local _ = ((_3_0)[2])[3]
+      local _3_ = _241
+      if ((type(_3_) == "table") and ((_3_)[1] == "enter") and ((type((_3_)[2]) == "table") and (nil ~= ((_3_)[2])[1]) and (nil ~= ((_3_)[2])[2]) and true)) then
+        local file = ((_3_)[2])[1]
+        local line = ((_3_)[2])[2]
+        local _ = ((_3_)[2])[3]
         cmd("e", ("+" .. line), file)
         cmd("keepjumps", "normal", "zz")
       end
